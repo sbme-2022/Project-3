@@ -1,5 +1,6 @@
 const fetch = require('node-fetch');
 const mongoose = require('mongoose');
+require('dotenv').config()
 
 mongoose.connect('mongodb://localhost/currency-convertor')
   .then(() => console.log("Conected to MongoDB..."))
@@ -15,7 +16,7 @@ const convertorSchema = new mongoose.Schema({
 const Convertor = mongoose.model('Convertor', convertorSchema);
 
 var myHeaders = new fetch.Headers();
-myHeaders.append("apikey", "UtNXP4lARPKAFZu6Tn4LXlc22SO73kSf");
+myHeaders.append("apikey", process.env.CURRENCY_CONVERTOR_API_KEY);
 
 var requestOptions = {
   method: 'GET',
@@ -43,37 +44,47 @@ async function getSymbols() {
 //   .then(result => console.log(symbolsList));
 
 
-async function uploadToDB() {
-  // for (var i in symbolsList) {
-    var i = 'EGP'; 
-    const response = await fetch(`https://api.apilayer.com/exchangerates_data/latest?&base=${i}`, requestOptions)
-    const result = await response.text();
-    jsonrResult = JSON.parse(result);
-    const convertor = new Convertor({
-      base: i,
+async function getFromApiAndUpdateDB() {
+  var convertor = await Convertor.find({ base: 'EGP' });
+  var base = 'EGP';
+  const response = await fetch(`https://api.apilayer.com/exchangerates_data/latest?&base=${base}`, requestOptions)
+  const result = await response.text();
+  jsonrResult = JSON.parse(result);
+  convertor = await Convertor.updateOne({ base: 'EGP' }, {
+    $set: {
+      base: base,
       rates: jsonrResult.rates
-    });
-    console.log(convertor);
-    await convertor.save();
-    // }
+    }
+  });
+  console.log(convertor);
+  // await convertor.save();
 }
-// uploadToDB();
+// getFromApiAndUpdateDB();
 
 
-async function getRateFromDB(from, to){
-  const convertor = await Convertor.find({base: from.toUpperCase()}).then(
-  result => console.log('to', result)
-
-  );
-  console.log('from', convertor);
-  // const convertorTo = convertor.rates;
-}
-getRateFromDB('egp','usd');
-
-
-async function convertData() {
+// convertor(from x to y) = amount * rate ... rate = rate(y)/rate(x)
+async function getRateFromDB(from, to) {
   try {
-    const response = await fetch("https://api.apilayer.com/exchangerates_data/convert?to={to}&from={from}&amount={amount}", requestOptions);
+    var rate;
+    await Convertor.find().then(
+      result => {
+        console.log('result', result);
+        if (from.toUpperCase === 'EGP') {
+          rate = result[0].rates.get(to.toUpperCase());
+        }
+        rate = (result[0].rates.get(to.toUpperCase())) / (result[0].rates.get(from.toUpperCase()));
+        console.log('rate', rate);
+      }
+    )
+  } catch (error) {
+    console.log('error', error);
+  }
+}
+// getRateFromDB('XAU', 'usd');
+
+async function convertData(from, to, amount) {
+  try {
+    const response = await fetch(`https://api.apilayer.com/exchangerates_data/convert?to=${to.toUpperCase()}&from=${from.toUpperCase()}&amount=${amount}`, requestOptions);
     const result = await response.text();
     jsonrResult = JSON.parse(result);
     console.log('result', jsonrResult);
@@ -92,4 +103,4 @@ async function convertData() {
     console.log('error', error);
   }
 }
-// convertData();
+// convertData('XAU', 'USD', 20);
