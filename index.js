@@ -43,6 +43,19 @@ async function getSymbols() {
 // getSymbols()
 //   .then(result => console.log(symbolsList));
 
+async function getFromApiAndCreateDB(){
+  var base = 'EGP';
+  const response = await fetch(`https://api.apilayer.com/exchangerates_data/latest?&base=${base}`, requestOptions)
+  const result = await response.text();
+  jsonrResult = JSON.parse(result);
+  var convertor = new Convertor({
+    base: 'EGP',
+    rates: jsonrResult.rates
+  });
+  await convertor.save();
+  console.log(convertor);
+}
+getFromApiAndCreateDB();
 
 async function getFromApiAndUpdateDB() {
   var convertor = await Convertor.find({ base: 'EGP' });
@@ -57,7 +70,6 @@ async function getFromApiAndUpdateDB() {
     }
   });
   console.log(convertor);
-  // await convertor.save();
 }
 // getFromApiAndUpdateDB();
 
